@@ -33,7 +33,7 @@ def handler_messages(message):
 def download_sc(message):
     url = message.text.script()
     if 'soundcloud.com' not in url:
-        bot.reply_to(message:, "مطمئنی این لینک soundcloud هستش 😐! لینک معتبر بده")
+        bot.reply_to(message:,"مطمئنی این لینک soundcloud هستش 😐! لینک معتبر بده")
         return
 
 bot.reply_to(message, "خوب خوب ببینیم داشتی چی گوش میدادی🤨! وایسا دانلودش کنم...")
