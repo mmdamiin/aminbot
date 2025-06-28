@@ -1,68 +1,63 @@
 import telebot
 import requests
+import re
 
-# توکن رباتتو اینجا بذار
-TOKEN = "7500354841:AAHYfeQQirUBL6Aca0s0qwYJZulZp-HA7j8"
-OWNER_ID = 5770789775  # آیدی عددی خودت (مالک ربات)
+# توکن ربات
+API_TOKEN = '7500354841:AAHYfeQQirUBL6Aca0s0qwYJZulZp-HA7j8'
+OWNER_ID = 5770789775  # عدد آیدی عددی خودت رو اینجا بذار (از @userinfobot بگیر)
 
-bot = telebot.TeleBot(TOKEN)
+bot = telebot.TeleBot(API_TOKEN)
 
-# وقتی کاربر /start بزنه
+# هندلر استارت
 @bot.message_handler(commands=['start'])
-def start_handler(message):
-    markup = telebot.types.InlineKeyboardMarkup()
-    markup.add(
-        telebot.types.InlineKeyboardButton("💬 چت با محمدامین", callback_data='chat'),
-        telebot.types.InlineKeyboardButton("🎵 دانلود آهنگ از ساندکلاد", callback_data='download')
-    )
-    bot.send_message(message.chat.id, "سلام! یکی از گزینه‌های زیر رو انتخاب کن:", reply_markup=markup)
-    
-    # اطلاع به مالک که یکی وارد ربات شد
-    if message.chat.id != OWNER_ID:
-        info = f"🎉 یه کاربر جدید وارد ربات شد!\n\nنام: {message.from_user.first_name}\nآیدی: @{message.from_user.username}\nچت آیدی: {message.chat.id}"
-        bot.send_message(OWNER_ID, info)
+def send_welcome(message):
+    bot.send_message(message.chat.id, "سلام! به ربات خوش اومدی 😄")
+    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row("🎧 دانلود آهنگ از ساندکلاد", "💬 چت با محمدامین")
+    bot.send_message(message.chat.id, "یکی از گزینه‌های زیر رو انتخاب کن:", reply_markup=markup)
 
-# مدیریت کلیک روی دکمه‌ها
-@bot.callback_query_handler(func=lambda call: True)
-def callback_handler(call):
-    if call.data == 'chat':
-        bot.send_message(call.message.chat.id, "پیام‌تو بفرست، محمدامین فقط خودش می‌بینه 😎")
-        bot.register_next_step_handler(call.message, forward_to_owner)
+    # اطلاع به مالک ربات
+    bot.send_message(OWNER_ID, f"یک نفر وارد ربات شد: {message.from_user.first_name} | @{message.from_user.username}")
 
-    elif call.data == 'download':
-        bot.send_message(call.message.chat.id, "لینک آهنگ ساندکلاد رو بفرست (بدون متن اضافه):")
-        bot.register_next_step_handler(call.message, download_song)
+# دکمه‌ها
+@bot.message_handler(func=lambda message: message.text == "💬 چت با محمدامین")
+def handle_chat_request(message):
+    bot.send_message(message.chat.id, "پیام‌تو بنویس تا برای محمدامین ارسال بشه:")
+    bot.register_next_step_handler(message, forward_to_owner)
 
-# فرستادن پیام کاربر به مالک (تو)
 def forward_to_owner(message):
-    sender = f"پیام جدید از {message.from_user.first_name} (@{message.from_user.username}):\n\n{message.text}"
-    bot.send_message(OWNER_ID, sender)
+    text = f"📩 پیام از {message.from_user.first_name} (@{message.from_user.username}):\n{message.text}"
+    bot.send_message(OWNER_ID, text)
+    bot.send_message(message.chat.id, "✅ پیام‌ت فرستاده شد برای محمدامین.")
 
-# دانلود آهنگ واقعی از لینک SoundCloud
-def download_song(message):
-    url = message.text.strip()
-    if not url.startswith("http"):
-        bot.send_message(message.chat.id, "لطفاً فقط لینک معتبر ساندکلاد رو بفرست 😐")
+@bot.message_handler(func=lambda message: message.text == "🎧 دانلود آهنگ از ساندکلاد")
+def ask_for_soundcloud_link(message):
+    bot.send_message(message.chat.id, "لینک آهنگ ساندکلاد رو بفرست:")
+    bot.register_next_step_handler(message, download_soundcloud)
+
+def download_soundcloud(message):
+    link = message.text
+    if not re.match(r'https?://(www\.)?soundcloud\.com/.+', link):
+        bot.send_message(message.chat.id, "❌ لینک معتبر ساندکلاد نیست.")
         return
 
-    bot.send_message(message.chat.id, "⏳ در حال دانلود آهنگ...")
+    bot.send_message(message.chat.id, "🔄 در حال پردازش لینک...")
 
     try:
-        # API خارجی برای تبدیل لینک ساندکلاد به فایل (مثال آزمایشی)
-        api_url = f"https://api.vevioz.com/api/widget?url={url}"
-        response = requests.get(api_url)
+        # این آدرس ممکنه در آینده فیلتر یا بسته بشه، جایگزین قابل تغییره
+        api = f"https://api.vevioz.com/api/button/mp3/{link}"
+        response = requests.get(api)
+        match = re.search(r'href=\"(https://[^\"]+\.mp3)\"', response.text)
 
-        if response.status_code == 200 and "mp3" in response.text:
-            # لینک دانلود را استخراج کن
-            # برای مثال فقط پیام ارسال می‌کنیم (تغییر بده به روش خودت اگه خواستی)
-            bot.send_message(message.chat.id, "✅ آهنگ آماده‌ست! ولی فعلاً لینک مستقیمش اینجاست:\n" + url)
+        if match:
+            mp3_url = match.group(1)
+            bot.send_message(message.chat.id, "✅ دانلود شروع شد")
+            bot.send_audio(message.chat.id, audio=mp3_url)
         else:
-            bot.send_message(message.chat.id, "متأسفم، نشد آهنگ رو دانلود کنم. لینک شاید اشتباهه یا قابل تبدیل نیست 😔")
+            bot.send_message(message.chat.id, "⚠️ نشد آهنگ رو بگیریم. ممکنه لینک مشکلی داشته باشه.")
 
     except Exception as e:
-        bot.send_message(message.chat.id, "یه مشکلی پیش اومد! بعداً امتحان کن ❌")
-        bot.send_message(OWNER_ID, f"[❗️] خطا در دانلود آهنگ:\n{e}")
+        bot.send_message(message.chat.id, f"🚫 خطا هنگام دریافت آهنگ: {e}")
 
-# اجرای بات
-print("ربات روشن شد ✅")
+print("ربات فعال شد")
 bot.infinity_polling()
