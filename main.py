@@ -26,7 +26,7 @@ def callback_query(call):
     elif call.data == "sc_download":
         bot.send_message(call.message.chat.id, "پس آهنگ می‌خوای 😁 لطفاً لینکت رو بدون پیام اضافی ارسال کن\nنمونه لینک: https://soundcloud.com/example-track")
 مثال:
-https://soundcloud.com/artist-name/track-name")
+bot.send_message(call.message.chat.id, "https://soundcloud.com/artist-name/track-name")
         bot.register_next_step_handler(call.message, handle_sc_link)
 
 def handle_sc_link(message):
